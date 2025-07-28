@@ -107,6 +107,36 @@ class HaxballClient {
                 this.handleKeyUp(e);
             }
         });
+
+        // Game settings event handlers
+        document.getElementById('hostSettingsBtn').addEventListener('click', () => {
+            if (this.isHost) {
+                document.getElementById('gameSettings').style.display = 'block';
+                // Pre-fill current values
+                if (this.gameState) {
+                    document.getElementById('timeLimit').value = Math.floor(this.gameState.maxTime / 60);
+                    document.getElementById('scoreLimitInput').value = this.gameState.maxScore;
+                }
+            }
+        });
+
+        document.getElementById('applySettings').addEventListener('click', () => {
+            const timeLimit = parseInt(document.getElementById('timeLimit').value) * 60;
+            const scoreLimit = parseInt(document.getElementById('scoreLimitInput').value);
+            this.updateGameSettings(timeLimit, scoreLimit);
+            document.getElementById('gameSettings').style.display = 'none';
+        });
+
+        document.getElementById('restartGameBtn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to restart the game?')) {
+                this.restartGame();
+                document.getElementById('gameSettings').style.display = 'none';
+            }
+        });
+
+        document.getElementById('closeSettings').addEventListener('click', () => {
+            document.getElementById('gameSettings').style.display = 'none';
+        });
     }
 
     setupSocketEvents() {
@@ -133,6 +163,7 @@ class HaxballClient {
         this.socket.on('gameUpdate', (gameState) => {
             this.gameState = gameState;
             this.render();
+            this.updateGameInfo();
         });
 
         this.socket.on('goal', (data) => {
@@ -157,6 +188,27 @@ class HaxballClient {
             this.gameState = data.gameState;
             this.isHost = (this.playerId === data.hostId);
             this.updateHostUI();
+        });
+
+        this.socket.on('gameSettingsUpdated', (data) => {
+            this.gameState = data.gameState;
+            this.showStatus('Game settings updated', 'success');
+        });
+
+        this.socket.on('gameRestarted', (gameState) => {
+            this.gameState = gameState;
+            this.showStatus('Game restarted', 'success');
+        });
+
+        this.socket.on('gameEnded', (data) => {
+            this.gameState = data.gameState;
+            let message = 'Game ended! ';
+            if (data.reason === 'time') {
+                message += 'Time limit reached.';
+            } else if (data.reason === 'score') {
+                message += 'Score limit reached.';
+            }
+            this.showStatus(message, 'success');
         });
 
         this.socket.on('kicked', (message) => {
@@ -307,7 +359,7 @@ class HaxballClient {
         if (!this.gameState || !this.ctx) return;
 
         const { ctx, canvas } = this;
-        const { players, ball, map, kickoffTeam, ballTouched } = this.gameState;
+        const { players, ball, map, kickoffTeam, ballTouched, kickEffects } = this.gameState;
 
         // Clear canvas
         ctx.fillStyle = '#2d5016';
@@ -321,6 +373,16 @@ class HaxballClient {
         map.walls.forEach(wall => {
             ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
         });
+
+        // Draw rounded corners if available
+        if (map.corners) {
+            ctx.fillStyle = '#8B4513';
+            map.corners.forEach(corner => {
+                ctx.beginPath();
+                ctx.arc(corner.x, corner.y, corner.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
 
         // Draw goals
         ctx.fillStyle = '#FFD700';
@@ -339,6 +401,17 @@ class HaxballClient {
             ctx.font = 'bold 14px Arial';
             ctx.fillStyle = '#FFFFFF';
             ctx.fillText('Stay on your side until ball is touched!', canvas.width / 2, 55);
+        }
+
+        // Draw kick effects
+        if (kickEffects && kickEffects.length > 0) {
+            kickEffects.forEach(effect => {
+                ctx.beginPath();
+                ctx.arc(effect.x, effect.y, effect.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(255, 255, 255, ${effect.opacity})`;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            });
         }
 
         // Draw players
@@ -408,6 +481,34 @@ class HaxballClient {
     updateScore(score) {
         document.getElementById('redScore').textContent = score.red;
         document.getElementById('blueScore').textContent = score.blue;
+    }
+
+    updateGameInfo() {
+        if (this.gameState) {
+            // Update time display
+            const timeDisplay = document.getElementById('gameTime');
+            if (timeDisplay) {
+                const minutes = Math.floor(this.gameState.gameTime / 60);
+                const seconds = this.gameState.gameTime % 60;
+                timeDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                
+                // Show time limit if set
+                if (this.gameState.maxTime > 0) {
+                    const maxMinutes = Math.floor(this.gameState.maxTime / 60);
+                    const maxSeconds = this.gameState.maxTime % 60;
+                    timeDisplay.textContent += ` / ${maxMinutes}:${maxSeconds.toString().padStart(2, '0')}`;
+                }
+            }
+            
+            // Update score limit display
+            const scoreDisplay = document.getElementById('scoreLimit');
+            if (scoreDisplay && this.gameState.maxScore > 0) {
+                scoreDisplay.textContent = `First to ${this.gameState.maxScore}`;
+                scoreDisplay.style.display = 'block';
+            } else if (scoreDisplay) {
+                scoreDisplay.style.display = 'none';
+            }
+        }
     }
 
     updatePlayersList() {
@@ -510,6 +611,12 @@ class HaxballClient {
         if (hostIndicator) {
             hostIndicator.style.display = this.isHost ? 'block' : 'none';
         }
+
+        // Show/hide host settings button
+        const hostSettingsBtn = document.getElementById('hostSettingsBtn');
+        if (hostSettingsBtn) {
+            hostSettingsBtn.style.display = this.isHost ? 'block' : 'none';
+        }
     }
 
     kickPlayer(playerId) {
@@ -528,6 +635,18 @@ class HaxballClient {
         this.socket.disconnect();
         document.getElementById('gameContainer').style.display = 'none';
         document.getElementById('joinForm').parentElement.style.display = 'block';
+    }
+
+    updateGameSettings(maxTime, maxScore) {
+        if (this.isHost) {
+            this.socket.emit('updateGameSettings', { maxTime, maxScore });
+        }
+    }
+
+    restartGame() {
+        if (this.isHost) {
+            this.socket.emit('restartGame');
+        }
     }
 }
 

@@ -64,12 +64,14 @@ const maps = {
       { x: 0, y: 50, width: 15, height: 175 }, // left top
       { x: 0, y: 375, width: 15, height: 175 }, // left bottom
       { x: 1185, y: 50, width: 15, height: 175 }, // right top
-      { x: 1185, y: 375, width: 15, height: 175 }, // right bottom
-      // Corner curves (simplified as diagonal walls)
-      { x: 15, y: 15, width: 35, height: 35 }, // top-left
-      { x: 15, y: 550, width: 35, height: 35 }, // bottom-left
-      { x: 1150, y: 15, width: 35, height: 35 }, // top-right
-      { x: 1150, y: 550, width: 35, height: 35 } // bottom-right
+      { x: 1185, y: 375, width: 15, height: 175 } // right bottom
+    ],
+    // Rounded corners - will be handled separately in collision detection
+    corners: [
+      { x: 50, y: 50, radius: 50, type: 'top-left' },
+      { x: 50, y: 550, radius: 50, type: 'bottom-left' },
+      { x: 1150, y: 50, radius: 50, type: 'top-right' },
+      { x: 1150, y: 550, radius: 50, type: 'bottom-right' }
     ]
   }
 };
@@ -92,6 +94,13 @@ class Game {
     this.gameStarted = false;
     this.kickoffTeam = null; // Which team can touch the ball first after a goal
     this.ballTouched = false; // Has the ball been touched after kickoff
+    
+    // New game settings
+    this.gameTime = 0; // Time in seconds
+    this.maxTime = 300; // 5 minutes default (0 = no time limit)
+    this.maxScore = 3; // First to 3 goals wins (0 = no score limit)
+    this.gameEnded = false;
+    this.kickEffects = []; // Array to store kick effect animations
   }
 
   addPlayer(playerId, playerName, team) {
@@ -132,7 +141,7 @@ class Game {
     const player = this.players[playerId];
     if (!player) return;
 
-    const speed = 0.3; // Reduced from 1 to make players even slower
+    const speed = 0.15; // Reduced from 1 to make players even slower
     const friction = 0.95; // decreased friction for better control
 
     // Apply input forces
@@ -197,6 +206,7 @@ class Game {
   }
 
   checkWallCollision(player) {
+    // Check regular walls
     this.map.walls.forEach(wall => {
       if (player.x + player.radius > wall.x && 
           player.x - player.radius < wall.x + wall.width &&
@@ -233,6 +243,36 @@ class Game {
         }
       }
     });
+
+    // Check rounded corners for rounded map
+    if (this.map.corners) {
+      this.map.corners.forEach(corner => {
+        const dx = player.x - corner.x;
+        const dy = player.y - corner.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Check if player is inside the corner radius
+        if (distance < corner.radius + player.radius && distance > corner.radius - player.radius) {
+          // Player is colliding with the rounded corner
+          if (distance > 0) {
+            const dirX = dx / distance;
+            const dirY = dy / distance;
+            
+            // Push player away from corner center
+            const targetDistance = corner.radius + player.radius + 1;
+            player.x = corner.x + dirX * targetDistance;
+            player.y = corner.y + dirY * targetDistance;
+            
+            // Stop velocity in the direction of the corner
+            const velDotDir = player.vx * dirX + player.vy * dirY;
+            if (velDotDir < 0) {
+              player.vx -= velDotDir * dirX;
+              player.vy -= velDotDir * dirY;
+            }
+          }
+        }
+      });
+    }
   }
 
   checkPlayerBallCollision(player) {
@@ -295,18 +335,18 @@ class Game {
         const dirX = dx / distance;
         const dirY = dy / distance;
         
-        // Separate players
+        // Separate players more gently
         const separation = overlap / 2;
         currentPlayer.x += dirX * separation;
         currentPlayer.y += dirY * separation;
         otherPlayer.x -= dirX * separation;
         otherPlayer.y -= dirY * separation;
         
-        // Reduce velocities on collision
-        currentPlayer.vx *= 0.8;
-        currentPlayer.vy *= 0.8;
-        otherPlayer.vx *= 0.8;
-        otherPlayer.vy *= 0.8;
+        // Much gentler velocity reduction on collision
+        currentPlayer.vx *= 0.95; // Reduced from 0.8 to 0.95
+        currentPlayer.vy *= 0.95;
+        otherPlayer.vx *= 0.95;
+        otherPlayer.vy *= 0.95;
       }
     });
   }
@@ -328,10 +368,20 @@ class Game {
         this.kickoffTeam = null; // Reset kickoff restriction
       }
       
-      const kickPower = 2.5; // Reduced from 5 to make ball shooting more controlled
+      const kickPower = 1; // Reduced from 5 to make ball shooting more controlled
       const angle = Math.atan2(dy, dx);
       this.ball.vx += Math.cos(angle) * kickPower;
       this.ball.vy += Math.sin(angle) * kickPower;
+      
+      // Add kick effect
+      this.kickEffects.push({
+        x: this.ball.x,
+        y: this.ball.y,
+        radius: 0,
+        maxRadius: 25,
+        opacity: 1,
+        createdAt: Date.now()
+      });
     }
   }
 
@@ -371,6 +421,9 @@ class Game {
 
     // Wall collision
     this.checkBallWallCollision();
+    
+    // Update kick effects
+    this.updateKickEffects();
     
     // Goal detection - return the scoring team
     return this.checkGoals();
@@ -421,6 +474,7 @@ class Game {
   }
 
   checkBallWallCollision() {
+    // Check regular walls
     this.map.walls.forEach(wall => {
       if (this.ball.x + this.ball.radius > wall.x && 
           this.ball.x - this.ball.radius < wall.x + wall.width &&
@@ -456,6 +510,53 @@ class Game {
         }
       }
     });
+
+    // Check rounded corners for rounded map
+    if (this.map.corners) {
+      this.map.corners.forEach(corner => {
+        const dx = this.ball.x - corner.x;
+        const dy = this.ball.y - corner.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Check if ball is inside the corner radius
+        if (distance < corner.radius + this.ball.radius && distance > corner.radius - this.ball.radius) {
+          // Ball is colliding with the rounded corner
+          if (distance > 0) {
+            const dirX = dx / distance;
+            const dirY = dy / distance;
+            
+            // Push ball away from corner center
+            const targetDistance = corner.radius + this.ball.radius + 1;
+            this.ball.x = corner.x + dirX * targetDistance;
+            this.ball.y = corner.y + dirY * targetDistance;
+            
+            // Reflect velocity off the curved surface
+            const velDotDir = this.ball.vx * dirX + this.ball.vy * dirY;
+            this.ball.vx -= 2 * velDotDir * dirX * 0.8;
+            this.ball.vy -= 2 * velDotDir * dirY * 0.8;
+          }
+        }
+      });
+    }
+  }
+
+  updateKickEffects() {
+    const now = Date.now();
+    this.kickEffects = this.kickEffects.filter(effect => {
+      const age = now - effect.createdAt;
+      const maxAge = 300; // 300ms duration
+      
+      if (age >= maxAge) {
+        return false; // Remove old effects
+      }
+      
+      // Update effect properties
+      const progress = age / maxAge;
+      effect.radius = effect.maxRadius * progress;
+      effect.opacity = 1 - progress;
+      
+      return true;
+    });
   }
 
   checkGoals() {
@@ -470,6 +571,12 @@ class Game {
       this.ballTouched = false;
       this.resetBall();
       this.positionPlayersForKickoff();
+      
+      // Check if game is over
+      if (this.maxScore > 0 && this.score.blue >= this.maxScore) {
+        this.gameEnded = true;
+      }
+      
       return 'blue';
     }
     
@@ -482,6 +589,12 @@ class Game {
       this.ballTouched = false;
       this.resetBall();
       this.positionPlayersForKickoff();
+      
+      // Check if game is over
+      if (this.maxScore > 0 && this.score.red >= this.maxScore) {
+        this.gameEnded = true;
+      }
+      
       return 'red';
     }
     
@@ -534,7 +647,12 @@ class Game {
       map: this.map,
       kickoffTeam: this.kickoffTeam,
       ballTouched: this.ballTouched,
-      hostId: this.hostId
+      hostId: this.hostId,
+      gameTime: this.gameTime,
+      maxTime: this.maxTime,
+      maxScore: this.maxScore,
+      gameEnded: this.gameEnded,
+      kickEffects: this.kickEffects
     };
   }
 
@@ -557,6 +675,39 @@ class Game {
   banPlayer(playerId) {
     this.bannedPlayers.add(playerId);
     this.kickPlayer(playerId);
+  }
+
+  updateGameTime() {
+    if (!this.gameEnded && this.gameStarted) {
+      this.gameTime++;
+      
+      // Check if time limit reached
+      if (this.maxTime > 0 && this.gameTime >= this.maxTime) {
+        this.gameEnded = true;
+        return true; // Game ended due to time
+      }
+    }
+    return false;
+  }
+
+  updateGameSettings(settings) {
+    if (settings.maxTime !== undefined) {
+      this.maxTime = Math.max(0, Math.min(3600, settings.maxTime)); // 0-60 minutes max
+    }
+    if (settings.maxScore !== undefined) {
+      this.maxScore = Math.max(0, Math.min(50, settings.maxScore)); // 0-50 goals max
+    }
+  }
+
+  restartGame() {
+    this.gameTime = 0;
+    this.score = { red: 0, blue: 0 };
+    this.gameEnded = false;
+    this.kickoffTeam = null;
+    this.ballTouched = false;
+    this.kickEffects = [];
+    this.resetBall();
+    this.positionPlayersForKickoff();
   }
 }
 
@@ -704,6 +855,42 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('updateGameSettings', (settings) => {
+    const player = players[socket.id];
+    if (player && rooms[player.roomId]) {
+      const room = rooms[player.roomId];
+      
+      // Only host can update game settings
+      if (!room.isHost(socket.id)) {
+        socket.emit('error', 'Only the host can update game settings');
+        return;
+      }
+
+      room.updateGameSettings(settings);
+      io.to(player.roomId).emit('gameSettingsUpdated', {
+        maxTime: room.maxTime,
+        maxScore: room.maxScore,
+        gameState: room.getGameState()
+      });
+    }
+  });
+
+  socket.on('restartGame', () => {
+    const player = players[socket.id];
+    if (player && rooms[player.roomId]) {
+      const room = rooms[player.roomId];
+      
+      // Only host can restart game
+      if (!room.isHost(socket.id)) {
+        socket.emit('error', 'Only the host can restart the game');
+        return;
+      }
+
+      room.restartGame();
+      io.to(player.roomId).emit('gameRestarted', room.getGameState());
+    }
+  });
+
   socket.on('disconnect', () => {
     const player = players[socket.id];
     if (player && rooms[player.roomId]) {
@@ -756,6 +943,23 @@ setInterval(() => {
     io.to(room.roomId).emit('gameUpdate', room.getGameState());
   });
 }, 1000 / 60); // 60 FPS
+
+// Game timer loop (1 second intervals)
+setInterval(() => {
+  Object.values(rooms).forEach(room => {
+    if (Object.keys(room.players).length > 0) {
+      room.gameStarted = true; // Start timer when players are present
+      const timeEnded = room.updateGameTime();
+      
+      if (timeEnded) {
+        io.to(room.roomId).emit('gameEnded', {
+          reason: 'time',
+          gameState: room.getGameState()
+        });
+      }
+    }
+  });
+}, 1000); // 1 second
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
