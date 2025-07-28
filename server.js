@@ -376,45 +376,41 @@ class Game {
 
   checkBallPlayerCollisions() {
     Object.values(this.players).forEach(player => {
+      // Prevent rival team from touching ball during kickoff
+      if (this.kickoffTeam && !this.ballTouched && player.team !== this.kickoffTeam) {
+        return;
+      }
       const dx = this.ball.x - player.x;
       const dy = this.ball.y - player.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
       const minDistance = this.ball.radius + player.radius;
       
       if (distance < minDistance && distance > 0) {
+        // Mark that the ball has been touched
+        if (this.kickoffTeam && !this.ballTouched && player.team === this.kickoffTeam) {
+          this.ballTouched = true;
+          this.kickoffTeam = null;
+        }
         // Calculate overlap
         const overlap = minDistance - distance;
-        
         // Normalize direction vector
         const dirX = dx / distance;
         const dirY = dy / distance;
-        
         // Separate ball and player
         const separation = overlap / 2;
         this.ball.x += dirX * separation;
         this.ball.y += dirY * separation;
         player.x -= dirX * separation;
         player.y -= dirY * separation;
-        
         // Ball bounces off player with some energy loss
         const bounceForce = 0.7;
         const relativeVelX = this.ball.vx - player.vx;
         const relativeVelY = this.ball.vy - player.vy;
-        
-        // Calculate relative velocity in collision normal direction
         const relativeVelNormal = relativeVelX * dirX + relativeVelY * dirY;
-        
-        // Do not resolve if velocities are separating
         if (relativeVelNormal > 0) return;
-        
-        // Calculate collision impulse
         const impulse = -relativeVelNormal * bounceForce;
-        
-        // Apply impulse to ball
         this.ball.vx += impulse * dirX;
         this.ball.vy += impulse * dirY;
-        
-        // Apply smaller counter-impulse to player
         const playerImpulse = impulse * 0.2;
         player.vx -= playerImpulse * dirX;
         player.vy -= playerImpulse * dirY;
