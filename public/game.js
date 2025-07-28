@@ -113,7 +113,9 @@ class HaxballClient {
         this.socket.on('joined', (data) => {
             this.playerId = data.playerId;
             this.gameState = data.gameState;
+            this.isHost = data.isHost;
             this.showGame();
+            this.updateHostUI();
             this.showStatus('Connected to game!', 'success');
         });
 
@@ -143,6 +145,32 @@ class HaxballClient {
             this.gameState = data.gameState;
             this.updateCanvasSize();
             this.showStatus(`Map changed to ${data.mapType}`, 'success');
+        });
+
+        this.socket.on('hostTransferred', (message) => {
+            this.isHost = true;
+            this.updateHostUI();
+            this.showStatus(message, 'success');
+        });
+
+        this.socket.on('newHost', (data) => {
+            this.gameState = data.gameState;
+            this.isHost = (this.playerId === data.hostId);
+            this.updateHostUI();
+        });
+
+        this.socket.on('kicked', (message) => {
+            this.showStatus(message, 'error');
+            this.disconnect();
+        });
+
+        this.socket.on('banned', (message) => {
+            this.showStatus(message, 'error');
+            this.disconnect();
+        });
+
+        this.socket.on('error', (message) => {
+            this.showStatus(message, 'error');
         });
 
         this.socket.on('connect', () => {
@@ -387,13 +415,41 @@ class HaxballClient {
         playersList.innerHTML = '';
         
         if (this.gameState) {
-            Object.values(this.gameState.players).forEach(player => {
+            Object.entries(this.gameState.players).forEach(([playerId, player]) => {
                 const playerDiv = document.createElement('div');
-                playerDiv.className = `player ${player.team}`;
-                playerDiv.textContent = player.name;
-                if (player.id === this.playerId) {
-                    playerDiv.textContent += ' (You)';
+                playerDiv.className = `player-item ${player.team}`;
+                
+                const playerInfo = document.createElement('span');
+                playerInfo.textContent = player.name;
+                if (playerId === this.playerId) {
+                    playerInfo.textContent += ' (You)';
                 }
+                if (playerId === this.gameState.hostId) {
+                    playerInfo.textContent += ' 👑';
+                }
+                
+                playerDiv.appendChild(playerInfo);
+                
+                // Add kick/ban buttons for host
+                if (this.isHost && playerId !== this.playerId && playerId !== this.gameState.hostId) {
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.className = 'player-actions';
+                    
+                    const kickBtn = document.createElement('button');
+                    kickBtn.className = 'player-action-btn kick-btn';
+                    kickBtn.textContent = 'Kick';
+                    kickBtn.onclick = () => this.kickPlayer(playerId);
+                    
+                    const banBtn = document.createElement('button');
+                    banBtn.className = 'player-action-btn ban-btn';
+                    banBtn.textContent = 'Ban';
+                    banBtn.onclick = () => this.banPlayer(playerId);
+                    
+                    actionsDiv.appendChild(kickBtn);
+                    actionsDiv.appendChild(banBtn);
+                    playerDiv.appendChild(actionsDiv);
+                }
+                
                 playersList.appendChild(playerDiv);
             });
         }
@@ -440,6 +496,38 @@ class HaxballClient {
         setTimeout(() => {
             notification.style.display = 'none';
         }, 3000);
+    }
+
+    updateHostUI() {
+        // Update map buttons to show/hide based on host status
+        const mapBtns = document.querySelectorAll('.map-btn');
+        mapBtns.forEach(btn => {
+            btn.style.display = this.isHost ? 'inline-block' : 'none';
+        });
+
+        // Show/hide host indicator
+        const hostIndicator = document.getElementById('hostIndicator');
+        if (hostIndicator) {
+            hostIndicator.style.display = this.isHost ? 'block' : 'none';
+        }
+    }
+
+    kickPlayer(playerId) {
+        if (this.isHost) {
+            this.socket.emit('kickPlayer', playerId);
+        }
+    }
+
+    banPlayer(playerId) {
+        if (this.isHost) {
+            this.socket.emit('banPlayer', playerId);
+        }
+    }
+
+    disconnect() {
+        this.socket.disconnect();
+        document.getElementById('gameContainer').style.display = 'none';
+        document.getElementById('joinForm').parentElement.style.display = 'block';
     }
 }
 

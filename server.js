@@ -75,9 +75,11 @@ const maps = {
 };
 
 class Game {
-  constructor(roomId, mapType = 'small') {
+  constructor(roomId, mapType = 'small', hostId = null) {
     this.roomId = roomId;
+    this.hostId = hostId; // The player who created the room
     this.players = {};
+    this.bannedPlayers = new Set(); // Set of banned player IDs
     this.ball = {
       x: maps[mapType].width / 2,
       y: maps[mapType].height / 2,
@@ -531,8 +533,30 @@ class Game {
       score: this.score,
       map: this.map,
       kickoffTeam: this.kickoffTeam,
-      ballTouched: this.ballTouched
+      ballTouched: this.ballTouched,
+      hostId: this.hostId
     };
+  }
+
+  isHost(playerId) {
+    return this.hostId === playerId;
+  }
+
+  isBanned(playerId) {
+    return this.bannedPlayers.has(playerId);
+  }
+
+  kickPlayer(playerId) {
+    if (this.players[playerId]) {
+      delete this.players[playerId];
+      return true;
+    }
+    return false;
+  }
+
+  banPlayer(playerId) {
+    this.bannedPlayers.add(playerId);
+    this.kickPlayer(playerId);
   }
 }
 
@@ -543,11 +567,24 @@ io.on('connection', (socket) => {
   socket.on('joinRoom', (data) => {
     const { roomId, playerName, team, mapType } = data;
     
+    // Create new room if it doesn't exist
     if (!rooms[roomId]) {
-      rooms[roomId] = new Game(roomId, mapType || 'small');
+      rooms[roomId] = new Game(roomId, mapType || 'small', socket.id); // Set creator as host
     }
     
     const room = rooms[roomId];
+    
+    // Check if player is banned
+    if (room.isBanned(socket.id)) {
+      socket.emit('banned', 'You have been banned from this room');
+      return;
+    }
+    
+    // If no host exists (shouldn't happen but safety check), make this player host
+    if (!room.hostId) {
+      room.hostId = socket.id;
+    }
+    
     room.addPlayer(socket.id, playerName, team);
     players[socket.id] = { roomId, playerName, team };
     
@@ -555,7 +592,8 @@ io.on('connection', (socket) => {
     socket.emit('joined', { 
       playerId: socket.id, 
       gameState: room.getGameState(),
-      availableMaps: Object.keys(maps).map(key => ({ id: key, name: maps[key].name }))
+      availableMaps: Object.keys(maps).map(key => ({ id: key, name: maps[key].name })),
+      isHost: room.isHost(socket.id)
     });
     
     io.to(roomId).emit('playerJoined', { 
@@ -576,7 +614,16 @@ io.on('connection', (socket) => {
   socket.on('changeMap', (mapType) => {
     const player = players[socket.id];
     if (player && rooms[player.roomId] && maps[mapType]) {
-      rooms[player.roomId] = new Game(player.roomId, mapType);
+      const room = rooms[player.roomId];
+      
+      // Only host can change maps
+      if (!room.isHost(socket.id)) {
+        socket.emit('error', 'Only the host can change maps');
+        return;
+      }
+      
+      const hostId = room.hostId; // Preserve host ID
+      rooms[player.roomId] = new Game(player.roomId, mapType, hostId);
       
       // Re-add all players
       Object.keys(players).forEach(playerId => {
@@ -592,17 +639,99 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('kickPlayer', (targetPlayerId) => {
+    const player = players[socket.id];
+    if (player && rooms[player.roomId]) {
+      const room = rooms[player.roomId];
+      
+      // Only host can kick players
+      if (!room.isHost(socket.id)) {
+        socket.emit('error', 'Only the host can kick players');
+        return;
+      }
+
+      // Cannot kick the host
+      if (targetPlayerId === room.hostId) {
+        socket.emit('error', 'Cannot kick the host');
+        return;
+      }
+
+      if (room.kickPlayer(targetPlayerId)) {
+        io.to(targetPlayerId).emit('kicked', 'You have been kicked from the room');
+        io.to(player.roomId).emit('playerLeft', { 
+          playerId: targetPlayerId,
+          gameState: room.getGameState()
+        });
+        
+        // Remove from players tracking
+        if (players[targetPlayerId]) {
+          delete players[targetPlayerId];
+        }
+      }
+    }
+  });
+
+  socket.on('banPlayer', (targetPlayerId) => {
+    const player = players[socket.id];
+    if (player && rooms[player.roomId]) {
+      const room = rooms[player.roomId];
+      
+      // Only host can ban players
+      if (!room.isHost(socket.id)) {
+        socket.emit('error', 'Only the host can ban players');
+        return;
+      }
+
+      // Cannot ban the host
+      if (targetPlayerId === room.hostId) {
+        socket.emit('error', 'Cannot ban the host');
+        return;
+      }
+
+      if (room.players[targetPlayerId]) {
+        room.banPlayer(targetPlayerId);
+        io.to(targetPlayerId).emit('banned', 'You have been banned from the room');
+        io.to(player.roomId).emit('playerLeft', { 
+          playerId: targetPlayerId,
+          gameState: room.getGameState()
+        });
+        
+        // Remove from players tracking
+        if (players[targetPlayerId]) {
+          delete players[targetPlayerId];
+        }
+      }
+    }
+  });
+
   socket.on('disconnect', () => {
     const player = players[socket.id];
     if (player && rooms[player.roomId]) {
-      rooms[player.roomId].removePlayer(socket.id);
+      const room = rooms[player.roomId];
+      
+      // If the host disconnected, assign a new host
+      if (room.isHost(socket.id)) {
+        const remainingPlayers = Object.keys(room.players).filter(id => id !== socket.id);
+        if (remainingPlayers.length > 0) {
+          room.hostId = remainingPlayers[0];
+          io.to(room.hostId).emit('hostTransferred', 'You are now the host');
+          io.to(player.roomId).emit('newHost', { 
+            hostId: room.hostId,
+            gameState: room.getGameState()
+          });
+        } else {
+          room.hostId = null;
+        }
+      }
+      
+      room.removePlayer(socket.id);
       io.to(player.roomId).emit('playerLeft', { 
         playerId: socket.id,
-        gameState: rooms[player.roomId].getGameState()
+        gameState: room.getGameState()
       });
       
       // Clean up empty rooms
-      if (Object.keys(rooms[player.roomId].players).length === 0) {
+      if (Object.keys(room.players).length === 0) {
         delete rooms[player.roomId];
       }
     }
