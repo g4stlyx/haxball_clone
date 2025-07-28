@@ -267,8 +267,8 @@ class HaxballClient {
 
     updateCanvasSize() {
         if (this.gameState && this.canvas) {
-            const mapWidth = this.gameState.map.width;
-            const mapHeight = this.gameState.map.height;
+            const mapWidth = this.gameState.map.extendedWidth || this.gameState.map.width;
+            const mapHeight = this.gameState.map.extendedHeight || this.gameState.map.height;
             
             // Calculate maximum available space (accounting for UI elements) - made bigger
             const maxWidth = window.innerWidth - 50; // Reduced margin for bigger display
@@ -361,23 +361,52 @@ class HaxballClient {
         const { ctx, canvas } = this;
         const { players, ball, map, kickoffTeam, ballTouched, kickEffects } = this.gameState;
 
-        // Clear canvas
-        ctx.fillStyle = '#2d5016';
+        // Clear canvas with extended area background (darker green)
+        ctx.fillStyle = '#1e3a0a';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw field area (brighter green)
+        if (map.fieldBoundaries) {
+            ctx.fillStyle = '#2d5016';
+            ctx.fillRect(
+                map.fieldBoundaries.left, 
+                map.fieldBoundaries.top, 
+                map.fieldBoundaries.right - map.fieldBoundaries.left, 
+                map.fieldBoundaries.bottom - map.fieldBoundaries.top
+            );
+        }
 
         // Draw field markings
         this.drawField();
 
-        // Draw walls
+        // Draw field walls (inner walls)
         ctx.fillStyle = '#8B4513';
         map.walls.forEach(wall => {
             ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
         });
 
-        // Draw rounded corners if available
+        // Draw outer walls (extended area boundaries)
+        if (map.outerWalls) {
+            ctx.fillStyle = '#654321'; // Darker brown for outer walls
+            map.outerWalls.forEach(wall => {
+                ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+            });
+        }
+
+        // Draw rounded corners if available (field corners)
         if (map.corners) {
             ctx.fillStyle = '#8B4513';
             map.corners.forEach(corner => {
+                ctx.beginPath();
+                ctx.arc(corner.x, corner.y, corner.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        // Draw outer rounded corners if available (extended area corners)
+        if (map.outerCorners) {
+            ctx.fillStyle = '#654321';
+            map.outerCorners.forEach(corner => {
                 ctx.beginPath();
                 ctx.arc(corner.x, corner.y, corner.radius, 0, Math.PI * 2);
                 ctx.fill();
@@ -389,6 +418,20 @@ class HaxballClient {
         const goals = map.goals;
         ctx.fillRect(goals.left.x, goals.left.y, goals.left.width, goals.left.height);
         ctx.fillRect(goals.right.x, goals.right.y, goals.right.width, goals.right.height);
+
+        // Draw field boundary lines (to show the playable area for the ball)
+        if (map.fieldBoundaries) {
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]); // Dashed line
+            ctx.strokeRect(
+                map.fieldBoundaries.left, 
+                map.fieldBoundaries.top, 
+                map.fieldBoundaries.right - map.fieldBoundaries.left, 
+                map.fieldBoundaries.bottom - map.fieldBoundaries.top
+            );
+            ctx.setLineDash([]); // Reset to solid line
+        }
 
         // Draw kickoff indicator
         if (kickoffTeam && !ballTouched) {
@@ -449,33 +492,43 @@ class HaxballClient {
 
     drawField() {
         const { ctx, canvas } = this;
-        const { kickoffTeam, ballTouched } = this.gameState;
+        const { kickoffTeam, ballTouched, map } = this.gameState;
+        
+        // Use field boundaries if available, otherwise use original dimensions
+        const fieldLeft = map.fieldBoundaries ? map.fieldBoundaries.left : 0;
+        const fieldRight = map.fieldBoundaries ? map.fieldBoundaries.right : canvas.width;
+        const fieldTop = map.fieldBoundaries ? map.fieldBoundaries.top : 0;
+        const fieldBottom = map.fieldBoundaries ? map.fieldBoundaries.bottom : canvas.height;
+        const fieldWidth = fieldRight - fieldLeft;
+        const fieldHeight = fieldBottom - fieldTop;
+        const centerX = fieldLeft + fieldWidth / 2;
+        const centerY = fieldTop + fieldHeight / 2;
         
         // Center line - make it more prominent during kickoff
         ctx.strokeStyle = (kickoffTeam && !ballTouched) ? '#FFD700' : '#FFFFFF';
         ctx.lineWidth = (kickoffTeam && !ballTouched) ? 4 : 2;
         ctx.beginPath();
-        ctx.moveTo(canvas.width / 2, 0);
-        ctx.lineTo(canvas.width / 2, canvas.height);
+        ctx.moveTo(centerX, fieldTop);
+        ctx.lineTo(centerX, fieldBottom);
         ctx.stroke();
 
         // Center circle
         ctx.strokeStyle = '#FFFFFF';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(canvas.width / 2, canvas.height / 2, 50, 0, Math.PI * 2);
+        ctx.arc(centerX, centerY, 50, 0, Math.PI * 2);
         ctx.stroke();
 
         // Goal areas
         const goalAreaWidth = 80;
         const goalAreaHeight = 120;
-        const goalAreaY = (canvas.height - goalAreaHeight) / 2;
+        const goalAreaY = centerY - goalAreaHeight / 2;
 
         // Left goal area
-        ctx.strokeRect(0, goalAreaY, goalAreaWidth, goalAreaHeight);
+        ctx.strokeRect(fieldLeft, goalAreaY, goalAreaWidth, goalAreaHeight);
         
         // Right goal area  
-        ctx.strokeRect(canvas.width - goalAreaWidth, goalAreaY, goalAreaWidth, goalAreaHeight);
+        ctx.strokeRect(fieldRight - goalAreaWidth, goalAreaY, goalAreaWidth, goalAreaHeight);
     }
 
     updateScore(score) {

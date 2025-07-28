@@ -20,58 +20,99 @@ const maps = {
     name: "Small Arena",
     width: 800,
     height: 400,
+    // Extended area for players (50px margin on all sides)
+    extendedWidth: 900,
+    extendedHeight: 500,
+    // Field boundaries (inner area where ball can go)
+    fieldBoundaries: {
+      top: 50,
+      bottom: 450,
+      left: 50,
+      right: 850
+    },
     goals: {
-      left: { x: 0, y: 150, width: 10, height: 100 },
-      right: { x: 790, y: 150, width: 10, height: 100 }
+      left: { x: 50, y: 200, width: 10, height: 100 },
+      right: { x: 840, y: 200, width: 10, height: 100 }
     },
     walls: [
-      { x: 0, y: 0, width: 800, height: 10 }, // top
-      { x: 0, y: 390, width: 800, height: 10 }, // bottom
-      { x: 0, y: 0, width: 10, height: 150 }, // left top
-      { x: 0, y: 250, width: 10, height: 150 }, // left bottom
-      { x: 790, y: 0, width: 10, height: 150 }, // right top
-      { x: 790, y: 250, width: 10, height: 150 } // right bottom
+      // No field walls - players can move freely between main field and extended area
+      // Ball will be constrained by fieldBoundaries, players by outerWalls
+    ],
+    // Outer boundaries for players only
+    outerWalls: [
+      { x: 0, y: 0, width: 900, height: 10 }, // outer top
+      { x: 0, y: 490, width: 900, height: 10 }, // outer bottom
+      { x: 0, y: 0, width: 10, height: 500 }, // outer left
+      { x: 890, y: 0, width: 10, height: 500 } // outer right
     ]
   },
   big: {
     name: "Big Arena",
     width: 1200,
     height: 600,
+    // Extended area for players (75px margin on all sides)
+    extendedWidth: 1350,
+    extendedHeight: 750,
+    // Field boundaries (inner area where ball can go)
+    fieldBoundaries: {
+      top: 75,
+      bottom: 675,
+      left: 75,
+      right: 1275
+    },
     goals: {
-      left: { x: 0, y: 225, width: 15, height: 150 },
-      right: { x: 1185, y: 225, width: 15, height: 150 }
+      left: { x: 75, y: 300, width: 15, height: 150 },
+      right: { x: 1260, y: 300, width: 15, height: 150 }
     },
     walls: [
-      { x: 0, y: 0, width: 1200, height: 15 }, // top
-      { x: 0, y: 585, width: 1200, height: 15 }, // bottom
-      { x: 0, y: 0, width: 15, height: 225 }, // left top
-      { x: 0, y: 375, width: 15, height: 225 }, // left bottom
-      { x: 1185, y: 0, width: 15, height: 225 }, // right top
-      { x: 1185, y: 375, width: 15, height: 225 } // right bottom
+      // No field walls - players can move freely between main field and extended area
+      // Ball will be constrained by fieldBoundaries, players by outerWalls
+    ],
+    // Outer boundaries for players only
+    outerWalls: [
+      { x: 0, y: 0, width: 1350, height: 15 }, // outer top
+      { x: 0, y: 735, width: 1350, height: 15 }, // outer bottom
+      { x: 0, y: 0, width: 15, height: 750 }, // outer left
+      { x: 1335, y: 0, width: 15, height: 750 } // outer right
     ]
   },
   rounded: {
     name: "Rounded Big Arena",
     width: 1200,
     height: 600,
+    // Extended area for players (75px margin on all sides)
+    extendedWidth: 1350,
+    extendedHeight: 750,
+    // Field boundaries (inner area where ball can go)
+    fieldBoundaries: {
+      top: 75,
+      bottom: 675,
+      left: 75,
+      right: 1275
+    },
     goals: {
-      left: { x: 0, y: 225, width: 15, height: 150 },
-      right: { x: 1185, y: 225, width: 15, height: 150 }
+      left: { x: 75, y: 300, width: 15, height: 150 },
+      right: { x: 1260, y: 300, width: 15, height: 150 }
     },
     walls: [
-      { x: 50, y: 0, width: 1100, height: 15 }, // top
-      { x: 50, y: 585, width: 1100, height: 15 }, // bottom
-      { x: 0, y: 50, width: 15, height: 175 }, // left top
-      { x: 0, y: 375, width: 15, height: 175 }, // left bottom
-      { x: 1185, y: 50, width: 15, height: 175 }, // right top
-      { x: 1185, y: 375, width: 15, height: 175 } // right bottom
+      // No field walls - players can move freely between main field and extended area
+      // Ball will be constrained by fieldBoundaries, players by outerWalls
     ],
-    // Rounded corners - will be handled separately in collision detection
-    corners: [
-      { x: 50, y: 50, radius: 50, type: 'top-left' },
-      { x: 50, y: 550, radius: 50, type: 'bottom-left' },
-      { x: 1150, y: 50, radius: 50, type: 'top-right' },
-      { x: 1150, y: 550, radius: 50, type: 'bottom-right' }
+    // No field corners - players can move freely, ball constrained by fieldBoundaries
+    corners: [],
+    // Outer boundaries for players only
+    outerWalls: [
+      { x: 0, y: 0, width: 1350, height: 15 }, // outer top
+      { x: 0, y: 735, width: 1350, height: 15 }, // outer bottom
+      { x: 0, y: 0, width: 15, height: 750 }, // outer left
+      { x: 1335, y: 0, width: 15, height: 750 } // outer right
+    ],
+    // Outer corners for players
+    outerCorners: [
+      { x: 15, y: 15, radius: 15, type: 'top-left' },
+      { x: 15, y: 735, radius: 15, type: 'bottom-left' },
+      { x: 1335, y: 15, radius: 15, type: 'top-right' },
+      { x: 1335, y: 735, radius: 15, type: 'bottom-right' }
     ]
   }
 };
@@ -83,8 +124,8 @@ class Game {
     this.players = {};
     this.bannedPlayers = new Set(); // Set of banned player IDs
     this.ball = {
-      x: maps[mapType].width / 2,
-      y: maps[mapType].height / 2,
+      x: maps[mapType].extendedWidth / 2,
+      y: maps[mapType].extendedHeight / 2,
       vx: 0,
       vy: 0,
       radius: 10
@@ -111,13 +152,13 @@ class Game {
     let spawnX, spawnY;
     
     if (team === 'red') {
-      // Red team on the left side
-      spawnX = this.map.width * 0.25 - Math.floor(playerCount / 2) * 40;
-      spawnY = (this.map.height / 3) * ((playerCount % 2) + 1);
+      // Red team on the left side (use extended area)
+      spawnX = this.map.extendedWidth * 0.25 - Math.floor(playerCount / 2) * 40;
+      spawnY = (this.map.extendedHeight / 3) * ((playerCount % 2) + 1);
     } else {
-      // Blue team on the right side
-      spawnX = this.map.width * 0.75 + Math.floor(playerCount / 2) * 40;
-      spawnY = (this.map.height / 3) * ((playerCount % 2) + 1);
+      // Blue team on the right side (use extended area)
+      spawnX = this.map.extendedWidth * 0.75 + Math.floor(playerCount / 2) * 40;
+      spawnY = (this.map.extendedHeight / 3) * ((playerCount % 2) + 1);
     }
     
     this.players[playerId] = {
@@ -158,9 +199,9 @@ class Game {
     player.x += player.vx;
     player.y += player.vy;
 
-    // Kickoff field crossing restriction
+    // Kickoff field crossing restriction (use original field boundaries)
     if (this.kickoffTeam && !this.ballTouched) {
-      const centerLine = this.map.width / 2;
+      const centerLine = this.map.extendedWidth / 2;
       if (player.team === 'red' && player.x > centerLine) {
         // Red team (left side) cannot cross to right side
         player.x = centerLine;
@@ -172,21 +213,21 @@ class Game {
       }
     }
 
-    // Boundary collision
+    // Boundary collision (use extended area for players)
     if (player.x - player.radius < 0) {
       player.x = player.radius;
       player.vx = 0;
     }
-    if (player.x + player.radius > this.map.width) {
-      player.x = this.map.width - player.radius;
+    if (player.x + player.radius > this.map.extendedWidth) {
+      player.x = this.map.extendedWidth - player.radius;
       player.vx = 0;
     }
     if (player.y - player.radius < 0) {
       player.y = player.radius;
       player.vy = 0;
     }
-    if (player.y + player.radius > this.map.height) {
-      player.y = this.map.height - player.radius;
+    if (player.y + player.radius > this.map.extendedHeight) {
+      player.y = this.map.extendedHeight - player.radius;
       player.vy = 0;
     }
 
@@ -206,7 +247,7 @@ class Game {
   }
 
   checkWallCollision(player) {
-    // Check regular walls
+    // Check field walls (inner walls)
     this.map.walls.forEach(wall => {
       if (player.x + player.radius > wall.x && 
           player.x - player.radius < wall.x + wall.width &&
@@ -244,7 +285,42 @@ class Game {
       }
     });
 
-    // Check rounded corners for rounded map
+    // Check outer walls (extended area boundaries)
+    if (this.map.outerWalls) {
+      this.map.outerWalls.forEach(wall => {
+        if (player.x + player.radius > wall.x && 
+            player.x - player.radius < wall.x + wall.width &&
+            player.y + player.radius > wall.y && 
+            player.y - player.radius < wall.y + wall.height) {
+          
+          const centerX = wall.x + wall.width / 2;
+          const centerY = wall.y + wall.height / 2;
+          const dx = player.x - centerX;
+          const dy = player.y - centerY;
+          
+          const overlapX = (player.radius + wall.width / 2) - Math.abs(dx);
+          const overlapY = (player.radius + wall.height / 2) - Math.abs(dy);
+          
+          if (overlapX < overlapY) {
+            if (dx > 0) {
+              player.x = wall.x + wall.width + player.radius + 1;
+            } else {
+              player.x = wall.x - player.radius - 1;
+            }
+            player.vx = 0;
+          } else {
+            if (dy > 0) {
+              player.y = wall.y + wall.height + player.radius + 1;
+            } else {
+              player.y = wall.y - player.radius - 1;
+            }
+            player.vy = 0;
+          }
+        }
+      });
+    }
+
+    // Check rounded corners for rounded map (field corners)
     if (this.map.corners) {
       this.map.corners.forEach(corner => {
         const dx = player.x - corner.x;
@@ -264,6 +340,32 @@ class Game {
             player.y = corner.y + dirY * targetDistance;
             
             // Stop velocity in the direction of the corner
+            const velDotDir = player.vx * dirX + player.vy * dirY;
+            if (velDotDir < 0) {
+              player.vx -= velDotDir * dirX;
+              player.vy -= velDotDir * dirY;
+            }
+          }
+        }
+      });
+    }
+
+    // Check outer rounded corners for rounded map (extended area corners)
+    if (this.map.outerCorners) {
+      this.map.outerCorners.forEach(corner => {
+        const dx = player.x - corner.x;
+        const dy = player.y - corner.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance < corner.radius + player.radius && distance > corner.radius - player.radius) {
+          if (distance > 0) {
+            const dirX = dx / distance;
+            const dirY = dy / distance;
+            
+            const targetDistance = corner.radius + player.radius + 1;
+            player.x = corner.x + dirX * targetDistance;
+            player.y = corner.y + dirY * targetDistance;
+            
             const velDotDir = player.vx * dirX + player.vy * dirY;
             if (velDotDir < 0) {
               player.vx -= velDotDir * dirX;
@@ -368,7 +470,7 @@ class Game {
         this.kickoffTeam = null; // Reset kickoff restriction
       }
       
-      const kickPower = 1; // Reduced from 5 to make ball shooting more controlled
+      const kickPower = 1; // Reduced from 1.5 to make ball shooting more controlled
       const angle = Math.atan2(dy, dx);
       this.ball.vx += Math.cos(angle) * kickPower;
       this.ball.vy += Math.sin(angle) * kickPower;
@@ -401,21 +503,22 @@ class Game {
     // Ball-to-player collision detection
     this.checkBallPlayerCollisions();
     
-    // Boundary collision
-    if (this.ball.x - this.ball.radius < 0) {
-      this.ball.x = this.ball.radius;
+    // Boundary collision (ball is constrained to field boundaries, not extended area)
+    const fieldBounds = this.map.fieldBoundaries;
+    if (this.ball.x - this.ball.radius < fieldBounds.left) {
+      this.ball.x = fieldBounds.left + this.ball.radius;
       this.ball.vx = -this.ball.vx * 0.8;
     }
-    if (this.ball.x + this.ball.radius > this.map.width) {
-      this.ball.x = this.map.width - this.ball.radius;
+    if (this.ball.x + this.ball.radius > fieldBounds.right) {
+      this.ball.x = fieldBounds.right - this.ball.radius;
       this.ball.vx = -this.ball.vx * 0.8;
     }
-    if (this.ball.y - this.ball.radius < 0) {
-      this.ball.y = this.ball.radius;
+    if (this.ball.y - this.ball.radius < fieldBounds.top) {
+      this.ball.y = fieldBounds.top + this.ball.radius;
       this.ball.vy = -this.ball.vy * 0.8;
     }
-    if (this.ball.y + this.ball.radius > this.map.height) {
-      this.ball.y = this.map.height - this.ball.radius;
+    if (this.ball.y + this.ball.radius > fieldBounds.bottom) {
+      this.ball.y = fieldBounds.bottom - this.ball.radius;
       this.ball.vy = -this.ball.vy * 0.8;
     }
 
@@ -602,8 +705,8 @@ class Game {
   }
 
   resetBall() {
-    this.ball.x = this.map.width / 2;
-    this.ball.y = this.map.height / 2;
+    this.ball.x = this.map.extendedWidth / 2;
+    this.ball.y = this.map.extendedHeight / 2;
     this.ball.vx = 0;
     this.ball.vy = 0;
   }
@@ -612,28 +715,28 @@ class Game {
     const redPlayers = Object.values(this.players).filter(p => p.team === 'red');
     const bluePlayers = Object.values(this.players).filter(p => p.team === 'blue');
     
-    // Position red team players on the left side
+    // Position red team players on the left side (using extended area)
     redPlayers.forEach((player, index) => {
       const rows = Math.ceil(redPlayers.length / 2);
       const playersInRow = Math.ceil(redPlayers.length / rows);
       const row = Math.floor(index / playersInRow);
       const col = index % playersInRow;
       
-      player.x = this.map.width * 0.25 - (row * 40); // Start at 25% width (left side)
-      player.y = (this.map.height / (playersInRow + 1)) * (col + 1);
+      player.x = this.map.extendedWidth * 0.25 - (row * 40); // Start at 25% width (left side)
+      player.y = (this.map.extendedHeight / (playersInRow + 1)) * (col + 1);
       player.vx = 0;
       player.vy = 0;
     });
     
-    // Position blue team players on the right side
+    // Position blue team players on the right side (using extended area)
     bluePlayers.forEach((player, index) => {
       const rows = Math.ceil(bluePlayers.length / 2);
       const playersInRow = Math.ceil(bluePlayers.length / rows);
       const row = Math.floor(index / playersInRow);
       const col = index % playersInRow;
       
-      player.x = this.map.width * 0.75 + (row * 40); // Start at 75% width (right side)
-      player.y = (this.map.height / (playersInRow + 1)) * (col + 1);
+      player.x = this.map.extendedWidth * 0.75 + (row * 40); // Start at 75% width (right side)
+      player.y = (this.map.extendedHeight / (playersInRow + 1)) * (col + 1);
       player.vx = 0;
       player.vy = 0;
     });
