@@ -328,7 +328,7 @@ class Game {
         this.kickoffTeam = null; // Reset kickoff restriction
       }
       
-      const kickPower = 5; // Reduced from 10 to make ball shooting slower
+      const kickPower = 2.5; // Reduced from 5 to make ball shooting more controlled
       const angle = Math.atan2(dy, dx);
       this.ball.vx += Math.cos(angle) * kickPower;
       this.ball.vy += Math.sin(angle) * kickPower;
