@@ -270,14 +270,14 @@ class HaxballClient {
             const mapWidth = this.gameState.map.extendedWidth || this.gameState.map.width;
             const mapHeight = this.gameState.map.extendedHeight || this.gameState.map.height;
             
-            // Calculate maximum available space (accounting for UI elements) - made bigger
-            const maxWidth = window.innerWidth - 50; // Reduced margin for bigger display
-            const maxHeight = window.innerHeight - 200; // Reduced UI space for bigger display
+            // Calculate maximum available space (accounting for UI elements) - made bigger and more responsive
+            const maxWidth = window.innerWidth * 0.95; // Use 95% of screen width
+            const maxHeight = window.innerHeight * 0.8; // Use 80% of screen height
             
             // Calculate scale to fit the map in the available space
             const scaleX = maxWidth / mapWidth;
             const scaleY = maxHeight / mapHeight;
-            const scale = Math.min(scaleX, scaleY, 1.2); // Allow slight upscaling for bigger display
+            const scale = Math.min(scaleX, scaleY, 1.5); // Allow more upscaling for bigger display
             
             // Set canvas size
             this.canvas.width = mapWidth;
@@ -418,6 +418,14 @@ class HaxballClient {
         const goals = map.goals;
         ctx.fillRect(goals.left.x, goals.left.y, goals.left.width, goals.left.height);
         ctx.fillRect(goals.right.x, goals.right.y, goals.right.width, goals.right.height);
+
+        // Draw crossbars (goal posts) in gray
+        if (map.crossbars) {
+            ctx.fillStyle = '#808080'; // Gray color for crossbars
+            map.crossbars.forEach(crossbar => {
+                ctx.fillRect(crossbar.x, crossbar.y, crossbar.width, crossbar.height);
+            });
+        }
 
         // Draw field boundary lines (to show the playable area for the ball)
         if (map.fieldBoundaries) {

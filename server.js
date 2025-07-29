@@ -34,6 +34,14 @@ const maps = {
       left: { x: 50, y: 200, width: 10, height: 100 },
       right: { x: 840, y: 200, width: 10, height: 100 }
     },
+    crossbars: [
+      // Left goal crossbars - positioned to block the goal opening
+      { x: 40, y: 190, width: 20, height: 10 }, // top crossbar (extends beyond goal)
+      { x: 40, y: 300, width: 20, height: 10 }, // bottom crossbar (extends beyond goal)
+      // Right goal crossbars - positioned to block the goal opening
+      { x: 840, y: 190, width: 20, height: 10 }, // top crossbar (extends beyond goal)
+      { x: 840, y: 300, width: 20, height: 10 }  // bottom crossbar (extends beyond goal)
+    ],
     walls: [
       // No field walls - players can move freely between main field and extended area
       // Ball will be constrained by fieldBoundaries, players by outerWalls
@@ -64,6 +72,14 @@ const maps = {
       left: { x: 75, y: 300, width: 15, height: 150 },
       right: { x: 1260, y: 300, width: 15, height: 150 }
     },
+    crossbars: [
+      // Left goal crossbars - positioned to block the goal opening
+      { x: 60, y: 285, width: 30, height: 15 }, // top crossbar (extends beyond goal)
+      { x: 60, y: 450, width: 30, height: 15 }, // bottom crossbar (extends beyond goal)
+      // Right goal crossbars - positioned to block the goal opening
+      { x: 1245, y: 285, width: 30, height: 15 }, // top crossbar (extends beyond goal)
+      { x: 1245, y: 450, width: 30, height: 15 }  // bottom crossbar (extends beyond goal)
+    ],
     walls: [
       // No field walls - players can move freely between main field and extended area
       // Ball will be constrained by fieldBoundaries, players by outerWalls
@@ -94,6 +110,14 @@ const maps = {
       left: { x: 75, y: 300, width: 15, height: 150 },
       right: { x: 1260, y: 300, width: 15, height: 150 }
     },
+    crossbars: [
+      // Left goal crossbars - positioned to block the goal opening
+      { x: 60, y: 285, width: 30, height: 15 }, // top crossbar (extends beyond goal)
+      { x: 60, y: 450, width: 30, height: 15 }, // bottom crossbar (extends beyond goal)
+      // Right goal crossbars - positioned to block the goal opening
+      { x: 1245, y: 285, width: 30, height: 15 }, // top crossbar (extends beyond goal)
+      { x: 1245, y: 450, width: 30, height: 15 }  // bottom crossbar (extends beyond goal)
+    ],
     walls: [
       // No field walls - players can move freely between main field and extended area
       // Ball will be constrained by fieldBoundaries, players by outerWalls
@@ -313,6 +337,46 @@ class Game {
               player.y = wall.y + wall.height + player.radius + 1;
             } else {
               player.y = wall.y - player.radius - 1;
+            }
+            player.vy = 0;
+          }
+        }
+      });
+    }
+
+    // Check crossbars (goal posts) - players cannot pass through them
+    if (this.map.crossbars) {
+      this.map.crossbars.forEach(crossbar => {
+        if (player.x + player.radius > crossbar.x && 
+            player.x - player.radius < crossbar.x + crossbar.width &&
+            player.y + player.radius > crossbar.y && 
+            player.y - player.radius < crossbar.y + crossbar.height) {
+          
+          // Debug: console.log('Player collision with crossbar detected');
+          
+          const centerX = crossbar.x + crossbar.width / 2;
+          const centerY = crossbar.y + crossbar.height / 2;
+          const dx = player.x - centerX;
+          const dy = player.y - centerY;
+          
+          const overlapX = (player.radius + crossbar.width / 2) - Math.abs(dx);
+          const overlapY = (player.radius + crossbar.height / 2) - Math.abs(dy);
+          
+          // Resolve collision on the axis with smaller overlap
+          if (overlapX < overlapY) {
+            // Horizontal collision
+            if (dx > 0) {
+              player.x = crossbar.x + crossbar.width + player.radius + 2; // Increased buffer
+            } else {
+              player.x = crossbar.x - player.radius - 2; // Increased buffer
+            }
+            player.vx = 0;
+          } else {
+            // Vertical collision
+            if (dy > 0) {
+              player.y = crossbar.y + crossbar.height + player.radius + 2; // Increased buffer
+            } else {
+              player.y = crossbar.y - player.radius - 2; // Increased buffer
             }
             player.vy = 0;
           }
@@ -613,6 +677,45 @@ class Game {
         }
       }
     });
+
+    // Check crossbars (goal posts)
+    if (this.map.crossbars) {
+      this.map.crossbars.forEach(crossbar => {
+        if (this.ball.x + this.ball.radius > crossbar.x && 
+            this.ball.x - this.ball.radius < crossbar.x + crossbar.width &&
+            this.ball.y + this.ball.radius > crossbar.y && 
+            this.ball.y - this.ball.radius < crossbar.y + crossbar.height) {
+          
+          const centerX = crossbar.x + crossbar.width / 2;
+          const centerY = crossbar.y + crossbar.height / 2;
+          const dx = this.ball.x - centerX;
+          const dy = this.ball.y - centerY;
+          
+          // Calculate overlap on both axes
+          const overlapX = (this.ball.radius + crossbar.width / 2) - Math.abs(dx);
+          const overlapY = (this.ball.radius + crossbar.height / 2) - Math.abs(dy);
+          
+          // Resolve collision on the axis with smaller overlap
+          if (overlapX < overlapY) {
+            // Horizontal collision
+            if (dx > 0) {
+              this.ball.x = crossbar.x + crossbar.width + this.ball.radius + 1;
+            } else {
+              this.ball.x = crossbar.x - this.ball.radius - 1;
+            }
+            this.ball.vx = -this.ball.vx * 0.8;
+          } else {
+            // Vertical collision
+            if (dy > 0) {
+              this.ball.y = crossbar.y + crossbar.height + this.ball.radius + 1;
+            } else {
+              this.ball.y = crossbar.y - this.ball.radius - 1;
+            }
+            this.ball.vy = -this.ball.vy * 0.8;
+          }
+        }
+      });
+    }
 
     // Check rounded corners for rounded map
     if (this.map.corners) {
